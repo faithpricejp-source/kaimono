@@ -1,0 +1,4 @@
+# server/ 只用 Python 标准库，没有第三方运行依赖（另有两个可选外部件，都不是 pip 包：
+#   claude CLI —— 荐物用，见 README「运行」；notify.py —— 可选邮件提醒，自备放进 PYTHONPATH）。
+# 下面只有测试依赖。
+pytest  # 测试框架：tests/ 下全部用例、fixture 与 monkeypatch

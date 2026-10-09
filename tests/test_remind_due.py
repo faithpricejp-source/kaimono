@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import datetime as dt
+import sys
 import types
 
 import pytest
@@ -10,6 +11,11 @@ import app
 import remind
 
 D = "2026-10-06"
+
+# 下面几条钉的是 Python 3.14 起 datetime 的报错原文（如「hour must be in 0..23, not 25」）；
+# 3.13 及以前的原文不同（「hour must be in 0..23」「day is out of range for month」），只在 3.14+ 上比对。
+NEEDS_PY314_MSG = pytest.mark.skipif(sys.version_info < (3, 14),
+                                     reason="断言的是 Python 3.14+ 的 datetime 报错原文，旧版本文案不同")
 
 
 def order(**kw) -> dict:
@@ -130,9 +136,9 @@ def test_falls_back_to_generic_word(item, merchant):
 # ---------- 非法输入：现在会抛 ValueError ----------
 
 @pytest.mark.parametrize("bad,msg", [
-    ("25:00", "hour must be in 0..23, not 25"),
-    ("24:00", "hour must be in 0..23, not 24"),
-    ("23:60", "minute must be in 0..59, not 60"),
+    pytest.param("25:00", "hour must be in 0..23, not 25", marks=NEEDS_PY314_MSG),
+    pytest.param("24:00", "hour must be in 0..23, not 24", marks=NEEDS_PY314_MSG),
+    pytest.param("23:60", "minute must be in 0..59, not 60", marks=NEEDS_PY314_MSG),
 ])
 def test_bad_window_start_raises(bad, msg):
     with pytest.raises(ValueError, match=msg):
@@ -147,7 +153,7 @@ def test_unparsable_window_start_raises():
 
 @pytest.mark.parametrize("bad,msg", [
     ("2026-13-45", "month must be in 1..12"),
-    ("2026-10-32", "day 32 must be in range 1..31 for month 10"),
+    pytest.param("2026-10-32", "day 32 must be in range 1..31 for month 10", marks=NEEDS_PY314_MSG),
     ("10/06/2026", "Invalid isoformat string"),
     ("tomorrow", "Invalid isoformat string"),
 ])
@@ -182,6 +188,7 @@ def seed(*rows):
                          VALUES(:item,:status,:delivery_date,:window_start,:window_end)""", r)
 
 
+@NEEDS_PY314_MSG
 def test_main_sends_each_kind_once_and_skips_dirty_row(monkeypatch, capsys):
     seed(dict(item="AAA", status="ordered", delivery_date=D, window_start=None, window_end=None),
          dict(item="BBB", status="ordered", delivery_date=D, window_start="14:00", window_end="16:00"),

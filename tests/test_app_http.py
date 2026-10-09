@@ -13,7 +13,10 @@ import remind
 
 def call(method: str, path: str, body: bytes | dict | None = None) -> tuple[int, dict, bytes]:
     data = json.dumps(body, ensure_ascii=False).encode() if isinstance(body, dict) else (body or b"")
-    raw = (f"{method} {path} HTTP/1.1\r\nHost: test\r\nContent-Length: {len(data)}\r\n\r\n").encode() + data
+    # POST 要过跨站防护：本机 Host + application/json（见 test_cross_site.py）
+    ctype = "Content-Type: application/json\r\n" if method == "POST" else ""
+    raw = (f"{method} {path} HTTP/1.1\r\nHost: 127.0.0.1\r\n{ctype}"
+           f"Content-Length: {len(data)}\r\n\r\n").encode() + data
     h = app.Handler.__new__(app.Handler)
     h.rfile, h.wfile = io.BytesIO(raw), io.BytesIO()
     h.client_address, h.server, h.request = ("127.0.0.1", 0), None, None

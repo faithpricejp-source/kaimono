@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!-- 示例：把 REPO 换成仓库的绝对路径，复制到 ~/Library/LaunchAgents/ 后 launchctl bootstrap gui/$(id -u) <plist> -->
+<plist version="1.0"><dict>
+  <key>Label</key><string>com.example.shopping</string>
+  <key>ProgramArguments</key><array><string>/usr/bin/env</string><string>python3</string><string>REPO/server/app.py</string></array>
+  <key>EnvironmentVariables</key><dict><key>PYTHONUNBUFFERED</key><string>1</string></dict>
+  <key>RunAtLoad</key><true/><key>KeepAlive</key><true/>
+  <key>StandardOutPath</key><string>REPO/logs/server.log</string>
+  <key>StandardErrorPath</key><string>REPO/logs/server.log</string>
+</dict></plist>

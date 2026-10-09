@@ -1,0 +1,174 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>買物</title>
+<script src="/web/theme.js"></script>
+<link rel="stylesheet" href="/web/style.css">
+<link rel="manifest" href="/web/manifest.json">
+<link rel="icon" href="/web/icon-192.png">
+</head>
+<body>
+<div class="wrap">
+  <header>
+    <nav class="tabs">
+      <a href="#orders" data-tab="orders">收货</a>
+      <a href="#watch" data-tab="watch">盯货</a>
+      <a href="#recs" data-tab="recs">荐物</a>
+    </nav>
+  </header>
+  <div id="view"></div>
+</div>
+<script type="module">
+const $ = s => document.querySelector(s)
+const esc = s => String(s ?? '').replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]))
+const href = u => /^https?:\/\//i.test(u || "") ? esc(u) : "#"   // 模型给的链接只放行 http(s)
+const api = (p, body) => fetch(p, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : undefined)
+  .then(async r => { const j = await r.json(); if (!r.ok) throw new Error(j.error || r.status); return j })
+const today = new Date(Date.now() - new Date().getTimezoneOffset() * 60000).toISOString().slice(0, 10)
+const STATUS = { ordered: '已下单', shipped: '已发货', delivered: '已收到', cancelled: '已取消' }
+const WEEK = '日一二三四五六'
+const fmtDay = d => { if (!d) return '送达日未定'; const x = new Date(d + 'T00:00'); return `${x.getMonth() + 1} 月 ${x.getDate()} 日（周${WEEK[x.getDay()]}）${d === today ? ' · 今天' : ''}` }
+
+async function orders() {
+  const { orders } = await api('/api/orders')
+  const open = orders.filter(o => o.status === 'ordered' || o.status === 'shipped')
+  const done = orders.filter(o => !open.includes(o))
+  const card = o => `<div class="card ${o.delivery_date === today && open.includes(o) ? 'today' : ''}">
+    <div class="t">${esc(o.item || '（未写商品）')}</div>
+    <div class="muted">${esc(o.merchant || '')}${o.order_no ? ' · 订单号 ' + esc(o.order_no) : ''}${o.ordered_at ? ' · 下单 ' + esc(o.ordered_at) : ''}</div>
+    <div class="when">${fmtDay(o.delivery_date)}${o.window_start ? ` ${esc(o.window_start)}${o.window_end ? '–' + esc(o.window_end) : ''}` : ''}</div>
+    <div><span class="chip ok">${STATUS[o.status] || o.status}</span>${o.carrier ? `<span class="chip">${esc(o.carrier)} ${esc(o.tracking_no || '')}</span>` : ''}
+      ${o.reminders.map(r => `<span class="chip">已提醒 ${r.kind}</span>`).join('')}</div>
+    ${o.note ? `<div class="muted" style="margin-top:6px">${esc(o.note)}</div>` : ''}
+    <div class="row">${open.includes(o) ? `<button data-st="delivered" data-id="${o.id}">收到了</button><button data-edit="${o.id}">改时间</button><button data-st="cancelled" data-id="${o.id}">取消</button>` : ''}</div>
+  </div>`
+  $('#view').innerHTML = `
+    <h2>等收货（${open.length}）</h2>${open.map(card).join('') || '<p class="muted">没有在途的订单</p>'}
+    <h2 id="form-h">记一单</h2>
+    <form class="grid card" id="add"><input type="hidden" name="id">
+      <label>商品<input name="item" required placeholder="电动牙刷"></label>
+      <label>商家<input name="merchant" placeholder="某网店"></label>
+      <label>订单号<input name="order_no"></label>
+      <label>送达日期<input name="delivery_date" type="date"></label>
+      <label>时间段开始<input name="window_start" placeholder="18:00"></label>
+      <label>时间段结束<input name="window_end" placeholder="20:00"></label>
+      <label>备注<input name="note"></label>
+      <label>&nbsp;<button class="primary">保存</button></label>
+    </form>
+    <div class="row"><button id="test">试一下提醒（Mac 会念出来）</button><span class="muted" id="test-out"></span></div>
+    ${done.length ? `<h2>已结束（${done.length}）</h2>${done.map(card).join('')}` : ''}`
+  $('#add').onsubmit = async e => {
+    e.preventDefault()
+    const body = Object.fromEntries(new FormData(e.target))
+    try { await api('/api/orders', body); orders() } catch (err) { alertBox(err.message) }
+  }
+  $('#test').onclick = async () => { $('#test-out').textContent = '发送中…'; const r = await api('/api/remind/test', {}); $('#test-out').textContent = JSON.stringify(r) }
+  $('#view').onclick = async e => {
+    const b = e.target.closest('button')
+    if (!b) return
+    if (b.dataset.st) { await api('/api/orders', { id: b.dataset.id, status: b.dataset.st }); orders() }
+    if (b.dataset.edit) {   // 不用 prompt()：Mac App 的 WKWebView 不弹 JS 对话框
+      const o = orders_cache.find(x => x.id == b.dataset.edit)
+      const f = $('#add')
+      for (const k of ['id', 'item', 'merchant', 'order_no', 'delivery_date', 'window_start', 'window_end', 'note']) f.elements[k].value = o[k] ?? ''
+      $('#form-h').textContent = '修改这一单'
+      f.scrollIntoView()
+    }
+  }
+  orders_cache = orders
+}
+let orders_cache = []
+const alertBox = m => { $('#view').insertAdjacentHTML('afterbegin', `<div class="card" style="border-color:#c0392b">${esc(m)}</div>`) }
+
+async function watch() {
+  const { watchers } = await api('/api/watchers')
+  $('#view').innerHTML = `<p class="muted">这些是已经在跑的盯梢哨兵（price-sentinel 等项目），这里只读显示状态。加新哨兵目前还是跟 Claude 说一声。</p>`
+    + watchers.map(w => `<div class="card">
+      <div class="t">${esc(w.name)}</div>
+      <div>${w.launchd.loaded ? '<span class="chip ok">定时任务在跑</span>' : '<span class="chip bad">定时任务没加载</span>'}
+        ${w.launchd.last_exit ? `<span class="chip bad">上次退出码 ${w.launchd.last_exit}</span>` : ''}
+        ${w.armed === false ? '<span class="chip">已触发 / 已解除</span>' : w.armed === true ? '<span class="chip ok">布防中</span>' : ''}</div>
+      ${w.last_log ? `<div class="log" style="margin-top:6px">${esc(w.last_log)}</div>` : ''}
+    </div>`).join('')
+}
+
+const VERDICTS = [['love', '很对胃口'], ['want', '想买'], ['have', '已经有了'], ['no', '不感兴趣'], ['wrong_reason', '东西行，理由不对']]
+let recPoll
+const yen = n => n == null ? '—' : '¥' + n.toLocaleString()
+const CHK = { verified: ['ok', '已核价'], partial: ['warn', '核到一半'], unverified: ['bad', '未核实'] }
+function chk(x) {
+  if (!x.chk_status) return ''
+  const [cls, label] = CHK[x.chk_status] || ['bad', x.chk_status]
+  return `<div class="muted" style="margin:6px 0"><span class="chip ${cls}">${label}</span>
+    现价 ${yen(x.chk_price)} · 运费 ${yen(x.chk_shipping)}${x.chk_total != null ? ` · <b>合计 ${yen(x.chk_total)}</b>` : ''}
+    ${x.chk_url ? ` · <a href="${href(x.chk_url)}" target="_blank">核价页</a>${x.chk_url_ok === 0 ? ' <span class="chip bad">打不开</span>' : ''}` : ''}
+    ${x.chk_note ? `<div>${esc(x.chk_note)}</div>` : ''}<div>核于 ${esc((x.chk_ts || '').slice(0, 16).replace('T', ' '))} UTC</div></div>`
+}
+async function recs() {
+  clearTimeout(recPoll)
+  const r = await api('/api/recs')
+  const b = r.batch
+  $('#view').innerHTML = `
+    <div class="card"><div class="muted">只为你的利益推荐：不拿返利、不接广告。每条都联网核实过、附出处。健康和财务数据不发给云端模型。</div>
+      <div class="row"><button id="new" class="primary" ${r.running ? 'disabled' : ''}>${r.running === 'generate' ? '正在生成并逐条核价…（约 10 分钟）' : '换一批'}</button>
+      <button id="prof">偏好档案</button><button id="memo">推荐偏好备忘</button></div>
+      ${r.error ? `<div class="muted">上次出错：${esc(r.error)}</div>` : ''}</div>
+    ${b ? `<h2>第 ${r.batches} 批 · ${esc(b.created_ts.slice(0, 10))}</h2>${b.note ? `<p class="muted">${esc(b.note)}</p>` : ''}` : ''}
+    ${r.recs.map(x => `<div class="card" data-id="${x.id}">
+      <div><span class="chip ok">${esc(x.category || '')}</span></div>
+      <div class="t" style="margin-top:6px">${esc(x.name)}</div>
+      <div class="muted">${[x.detail, x.origin, x.price, x.where_buy].filter(Boolean).map(esc).join(' · ')}</div>
+      ${x.why_now ? `<p><b>为什么是现在：</b>${esc(x.why_now)}</p>` : ''}
+      <p>${esc(x.reason || '')}</p>
+      ${x.how_to_buy || x.landed_cost ? `<div class="card" style="margin:8px 0;box-shadow:none">
+        <b>怎么买到手</b>${x.how_to_buy ? `<p style="margin:6px 0">${esc(x.how_to_buy)}</p>` : ''}
+        ${x.landed_cost ? `<p style="margin:6px 0"><b>到手总价：</b>${esc(x.landed_cost)}</p>` : ''}
+        ${x.buy_url ? `<div class="muted">购买页：<a href="${href(x.buy_url)}" target="_blank">${esc(x.buy_url.slice(0, 70))}</a>${x.buy_url_ok === 0 ? ' <span class="chip bad">链接打不开</span>' : ''}</div>` : ''}
+      </div>` : ''}
+      ${chk(x)}
+      ${x.caveat ? `<p class="muted">注意：${esc(x.caveat)}</p>` : ''}
+      ${x.url ? `<div class="muted">出处：<a href="${href(x.url)}" target="_blank">${esc(x.url.slice(0, 70))}</a>${x.url_ok ? '' : ' <span class="chip bad">链接打不开</span>'}</div>` : ''}
+      <div class="row">${VERDICTS.map(([v, l]) => `<button data-v="${v}" class="${x.feedback?.verdict === v ? 'primary' : ''}">${l}</button>`).join('')}</div>
+      <input class="cm" style="width:100%;margin-top:8px" placeholder="为什么？写了理由才学得准（可不写）" value="${esc(x.feedback?.comment || '')}">
+    </div>`).join('')}
+    ${b ? `<h2>对这批说两句</h2><textarea id="bcm" rows="3" style="width:100%"></textarea><div class="row"><button id="bcm-go">提交</button></div>` : ''}
+    <div id="editor"></div>`
+  $('#new').onclick = async () => { await api('/api/recs/generate', {}); recs() }
+  const editor = (title, key, text, extra = '') => {
+    $('#editor').innerHTML = `<div class="card"><div class="t">${title}</div><textarea id="ed" rows="14" style="width:100%">${esc(text)}</textarea>
+      <div class="row"><button class="primary" id="ed-save">保存</button>${extra}</div></div>`
+    $('#ed-save').onclick = async () => { await api('/api/recs/' + key, { text: $('#ed').value }); $('#ed-save').textContent = '已保存' }
+    $('#editor').scrollIntoView()
+  }
+  $('#prof').onclick = () => editor('偏好档案（荐物每次都读它，随便改）', 'profile', r.profile)
+  $('#memo').onclick = () => {
+    editor('推荐偏好备忘（AI 只从你写明的理由总结）', 'memo', r.memo, `<button id="distill" ${r.running ? 'disabled' : ''}>让 AI 根据反馈重写</button>`)
+    $('#distill').onclick = async () => { await api('/api/recs/distill', {}); $('#distill').textContent = '重写中，过一两分钟再打开'; $('#distill').disabled = true }
+  }
+  $('#bcm-go') && ($('#bcm-go').onclick = async () => {
+    const t = $('#bcm').value.trim(); if (!t) return
+    await api('/api/recs/comment', { text: t }); $('#bcm').value = ''; $('#bcm-go').textContent = '已记录'
+  })
+  $('#view').onclick = async e => {
+    const btn = e.target.closest('button[data-v]'); if (!btn) return
+    const card = btn.closest('[data-id]')
+    await api('/api/recs/feedback', { rec_id: card.dataset.id, verdict: btn.dataset.v, comment: card.querySelector('.cm').value })
+    recs()
+  }
+  if (r.running) recPoll = setTimeout(recs, 8000)
+}
+
+const VIEWS = { orders, watch, recs }
+function route() {
+  clearTimeout(recPoll)
+  const tab = location.hash.slice(1) || 'orders'
+  document.querySelectorAll('.tabs a').forEach(a => a.classList.toggle('on', a.dataset.tab === tab))
+  ;(VIEWS[tab] || orders)()
+}
+window.addEventListener('hashchange', route)
+route()
+</script>
+</body>
+</html>

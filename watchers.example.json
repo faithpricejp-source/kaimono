@@ -1,0 +1,6 @@
+[
+  {"name": "某商品到货", "label": "com.example.restock-watch",
+   "state": "~/watchers/restock/state.json", "log": "~/watchers/restock/watch.log"},
+  {"name": "某书降价", "label": "com.example.ebook-price-watch",
+   "state": "~/watchers/ebook/state.json", "log": null}
+]

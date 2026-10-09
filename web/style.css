@@ -1,0 +1,37 @@
+/* 与「读书」同一套主题：eink（墨水屏黑白）/ desk（暖纸色） */
+:root { --bg:#fff; --surface:#fff; --text:#000; --muted:#555; --line:#000; --accent:#000; --radius:0; --border-w:2px;
+  --shadow:none; --ui:-apple-system,"PingFang SC","Noto Sans CJK SC",sans-serif; --serif:"Songti SC","Noto Serif SC",serif; }
+:root[data-theme="desk"] { --bg:#f4efe6; --surface:#fbf8f2; --text:#2a2622; --muted:#8a8178; --line:#e3dbcf; --accent:#2f6b4f;
+  --radius:12px; --border-w:1px; --shadow:0 1px 2px rgba(60,40,20,.06),0 8px 24px rgba(60,40,20,.08); }
+@media (prefers-color-scheme: dark) { :root[data-theme="desk"] { --bg:#1c1a18; --surface:#252220; --text:#e8e2d9;
+  --muted:#9a9187; --line:#3a3531; --accent:#7fc4a0; --shadow:0 8px 24px rgba(0,0,0,.35); } }
+* { box-sizing: border-box; }
+:root[data-theme="eink"] * { transition: none !important; animation: none !important; }
+html, body { margin: 0; background: var(--bg); color: var(--text); font-family: var(--ui); font-size: 17px; }
+button, input, select, textarea { font: inherit; color: var(--text); background: var(--surface);
+  border: var(--border-w) solid var(--line); border-radius: var(--radius); padding: 9px 12px; }
+:root[data-theme="eink"] :is(button, input, select, textarea) { border-color: #000; }
+button { cursor: pointer; min-height: 42px; }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+:root[data-theme="eink"] button.primary { background: #000; }
+.muted { color: var(--muted); font-size: 14px; }
+.wrap { max-width: 980px; margin: 0 auto; padding: 16px 20px 60px; }
+header { display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin: 6px 0 18px; }
+.tabs { display: flex; gap: 4px; }
+.tabs a { text-decoration: none; font-family: var(--serif); font-size: 22px; padding: 4px 10px; color: var(--muted); }
+.tabs a.on { color: var(--text); font-weight: 700; box-shadow: inset 0 -3px 0 var(--accent); }
+h2 { font-size: 15px; color: var(--muted); letter-spacing: .06em; margin: 26px 0 10px; }
+.card { background: var(--surface); border: var(--border-w) solid var(--line); border-radius: var(--radius);
+  box-shadow: var(--shadow); padding: 14px 16px; margin: 10px 0; }
+.card .t { font-size: 18px; font-weight: 600; }
+.card .when { font-family: var(--serif); font-size: 20px; margin: 6px 0; }
+.card.today { border-color: var(--accent); border-width: 2px; }
+.chip { display: inline-block; font-size: 12px; padding: 2px 8px; border: 1px solid var(--line); border-radius: 999px; color: var(--muted); margin-right: 4px; }
+:root[data-theme="eink"] .chip { border-color: #000; color: #000; border-radius: 0; }
+.chip.ok { border-color: var(--accent); color: var(--accent); }
+.chip.bad { border-color: #c0392b; color: #c0392b; }
+.chip.warn { border-color: #b7791f; color: #b7791f; }
+.row { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 10px; }
+form.grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 10px; }
+form.grid label { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+.log { font-family: ui-monospace, Menlo, monospace; font-size: 12px; color: var(--muted); word-break: break-all; }

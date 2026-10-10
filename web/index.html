@@ -32,9 +32,9 @@ const WEEK = '日一二三四五六'
 const fmtDay = d => { if (!d) return '送达日未定'; const x = new Date(d + 'T00:00'); return `${x.getMonth() + 1} 月 ${x.getDate()} 日（周${WEEK[x.getDay()]}）${d === today ? ' · 今天' : ''}` }
 
 async function orders() {
-  const { orders } = await api('/api/orders')
-  const open = orders.filter(o => o.status === 'ordered' || o.status === 'shipped')
-  const done = orders.filter(o => !open.includes(o))
+  const { orders: orderRows } = await api('/api/orders')
+  const open = orderRows.filter(o => o.status === 'ordered' || o.status === 'shipped')
+  const done = orderRows.filter(o => !open.includes(o))
   const card = o => `<div class="card ${o.delivery_date === today && open.includes(o) ? 'today' : ''}">
     <div class="t">${esc(o.item || '（未写商品）')}</div>
     <div class="muted">${esc(o.merchant || '')}${o.order_no ? ' · 订单号 ' + esc(o.order_no) : ''}${o.ordered_at ? ' · 下单 ' + esc(o.ordered_at) : ''}</div>
@@ -72,12 +72,12 @@ async function orders() {
     if (b.dataset.edit) {   // 不用 prompt()：Mac App 的 WKWebView 不弹 JS 对话框
       const o = orders_cache.find(x => x.id == b.dataset.edit)
       const f = $('#add')
-      for (const k of ['id', 'item', 'merchant', 'order_no', 'delivery_date', 'window_start', 'window_end', 'note']) f.elements[k].value = o[k] ?? ''
+      for (const k of ['id', 'item', 'merchant', 'order_no', 'delivery_date', 'window_start', 'window_end', 'note']) f.elements.namedItem(k).value = o[k] ?? ''
       $('#form-h').textContent = '修改这一单'
       f.scrollIntoView()
     }
   }
-  orders_cache = orders
+  orders_cache = orderRows
 }
 let orders_cache = []
 const alertBox = m => { $('#view').insertAdjacentHTML('afterbegin', `<div class="card" style="border-color:#c0392b">${esc(m)}</div>`) }

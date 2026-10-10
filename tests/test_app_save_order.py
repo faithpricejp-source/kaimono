@@ -192,6 +192,15 @@ def test_changing_other_fields_keeps_reminders():
     assert reminders() == {(oid, "day")}
 
 
+@pytest.mark.parametrize("start", ["9:00", "09:00"])
+def test_form_edit_with_unchanged_delivery_keeps_reminders(start):
+    oid = app.save_order({"item": "fixture", "delivery_date": "2026-10-06", "window_start": "9:00"})
+    put_reminder(oid, "pre2h")
+    app.save_order({"id": oid, "note": "changed only note", "delivery_date": "2026-10-06",
+                    "window_start": start, "window_end": ""})
+    assert app.list_orders()[0]["reminders"][0]["kind"] == "pre2h"
+
+
 def test_clearing_reminders_with_null_delivery_date():
     # 键存在就清，哪怕值是 None
     oid = app.save_order({"item": "納豆", "delivery_date": "2026-10-06"})

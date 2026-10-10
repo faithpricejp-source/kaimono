@@ -67,3 +67,8 @@ python3 -m pytest -q               # 测试
 ## 许可证
 
 GPL-3.0
+
+
+## 2026-10-10 fixes
+
+Retry delivery reminders when all channels fail; preserve sent reminders when editing an order without changing its delivery time. Regression: 196 tests passed.

@@ -218,3 +218,21 @@ def test_main_leaves_delivered_orders_alone(monkeypatch):
     monkeypatch.setattr(remind, "send_alert", lambda text, title="收货提醒", say_times=1: sent.append(text))
     freeze(monkeypatch, at(12, 5))
     assert remind.main() == 0 and sent == []
+
+
+def test_all_failed_channels_retry_then_success_is_not_repeated(monkeypatch):
+    app.save_order(dict(item="fixture", status="ordered", delivery_date=D, window_start="14:00"))
+    freeze(monkeypatch, at(12, 5))
+    calls = []
+    results = iter([{"notification": False, "say": False, "email": False},
+                    {"notification": True, "say": False, "email": False}])
+    def send(*args, **kwargs):
+        calls.append(1)
+        return next(results)
+    monkeypatch.setattr(remind, "send_alert", send)
+    remind.main()
+    assert app.list_orders()[0]["reminders"] == []
+    remind.main()
+    assert len(app.list_orders()[0]["reminders"]) == 1
+    remind.main()
+    assert len(calls) == 2

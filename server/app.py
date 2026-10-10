@@ -110,6 +110,7 @@ def save_order(req: dict) -> int:
     with db() as c:
         if "id" in req and req["id"] not in (None, ""):   # bugfix-1007-S2 id=0 是 falsy，过去走新建分支
             oid = int(req["id"])
+            previous = c.execute("SELECT * FROM orders WHERE id=?", (oid,)).fetchone()
             sets = ", ".join(f"{k}=?" for k in ORDER_FIELDS if k in req)
             if not sets:
                 raise ValueError("没有要更新的字段")
@@ -119,7 +120,10 @@ def save_order(req: dict) -> int:
             if cur.rowcount == 0:
                 raise ValueError(f"订单 {oid} 不存在")   # bugfix-1007-S3 更新不存在的 id 不再静默成功
             # 改了送达时间 → 之前发过的提醒作废，按新时间重新提醒
-            if any(k in req for k in ("delivery_date", "window_start", "window_end")):
+            def delivery_value(k, value):
+                return value.zfill(5) if value and k in ("window_start", "window_end") else value or None
+            if any(k in req and delivery_value(k, vals[k]) != delivery_value(k, previous[k])
+                   for k in ("delivery_date", "window_start", "window_end")):
                 c.execute("DELETE FROM reminders WHERE order_id=?", (oid,))
             log_event(c, "order_update", oid, {k: vals[k] for k in ORDER_FIELDS if k in req})
         else:

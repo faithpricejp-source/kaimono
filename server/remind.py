@@ -81,12 +81,15 @@ def main() -> int:
             if (o["id"], kind) in done:
                 continue
             res = send_alert(text, say_times=times)
+            delivered = any(res.get(channel) for channel in ("notification", "say", "email"))
             with app.db() as c:
-                c.execute("INSERT OR REPLACE INTO reminders(order_id, kind, channels) VALUES(?,?,?)",
-                          (o["id"], kind, str(res)))
-                app.log_event(c, "reminder", o["id"], {"kind": kind, "text": text, **res})
+                if delivered:
+                    c.execute("INSERT OR REPLACE INTO reminders(order_id, kind, channels) VALUES(?,?,?)",
+                              (o["id"], kind, str(res)))
+                app.log_event(c, "reminder" if delivered else "reminder_failed", o["id"],
+                              {"kind": kind, "text": text, **res})
             print(f"{now:%F %T} order {o['id']} {kind}: {res}", flush=True)
-            sent_any += 1
+            sent_any += int(delivered)
     return 0
 
 
